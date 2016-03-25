@@ -21,18 +21,22 @@ import signal
 
 # The broadcast_message() function forwards the message msg
 # received from sock to all the other connected users.
+from blaze.server.tests.test_server import username
+from sympy.functions.special.error_functions import li
+
+
 def broadcast_message(sender_sock, msg_content):
     # TODO before (?) sending a message to clients, we have to store it into InfluxDB
-    print("DEBUG: broadcasting %s" % msg_content)
     for dest_sock in list_channels:
         # Clearly msg is not sent (again) neither to the sender itself nor to the initial sender.
         if dest_sock != server_socket and dest_sock != sender_sock:
-            print("DEBUG: broadcasting; sending message to %s" % sender_sock)
+            # print("DEBUG: broadcasting; sending message to %s" % sender_sock)
             # The try-except construct is used to handle broken channels (e.g., when a user pressed "Ctrl+C")
             try:
                 dest_sock.send(msg_content.encode('utf-8'))
             except:
                 dest_sock.close()
+                print("DEBUG: removing socket in broadcasting "+str(dest_sock))
                 list_channels.remove(dest_sock)
 
 
@@ -80,7 +84,6 @@ if __name__ == "__main__":
 
     i = 0
     while True:
-        print(list_channels)
         # Use select() for getting the channels that are ready to be read
         read_sockets, write_sockets, err_sockets = select.select(list_channels, [], [])
 
@@ -90,35 +93,68 @@ if __name__ == "__main__":
                 print("DEBUG: I'm receiving from server socket. "+str(i))
                 read_sock_fd, addr = server_socket.accept()
                 list_channels.append(read_sock_fd)
+
                 # TODO It would be nice to use clients' names instead of their IP addresses
-                # new_username = read_sock.recv(RECV_BUFFER_SIZE)
-                # username_addr_map[addr] = new_username
+                name_received = False
+                new_username = ''
+                while not name_received:
+                    read_sockets_name, write_sockets_name, err_sockets_name = select.select([read_sock_fd], [], [])
+
+                    for read_name_sock in read_sockets_name:
+                        if read_name_sock != read_sock_fd:
+                            print("DEBUG: Error while receiving username.")
+                        else:
+                            new_username = read_name_sock.recv(RECV_BUFFER_SIZE).decode()
+                            # We need to remove the "\n" at the end.
+                            new_username = new_username[0:len(new_username)-1]
+                            # Add the username to a map for future usage.
+                            username_addr_map[read_name_sock] = new_username
+                            name_received = True
+
                 # Notify to all users that someone joined the conversation
-                broadcast_message(read_sock_fd, "--- [%s:%s] joined the conversation ---" % (addr[0], addr[1]))
-                print("--- [%s:%s] joined the conversation ---" % (addr[0], addr[1]))
+                # broadcast_message(read_sock_fd, "--- [%s:%s] joined the conversation ---" % (addr[0], addr[1]))
+                broadcast_message(read_sock_fd, "--- %s joined the conversation ---" % new_username)
+                # print("--- [%s:%s] joined the conversation ---" % (addr[0], addr[1]))
+                print("--- %s joined the conversation ---" % new_username)
+
                 i += 1
+
             # Else, the value to be read is a new message sent by some user
             else:
                 print("DEBUG: I'm receiving from users. "+str(i))
+
+                # Get the username related to the socket.
+                sender_username = username_addr_map[read_sock]
+
                 # the try-except construct is used to handle
                 # "Connection reset by peer" exceptions in Windows
                 try:
                     msg = read_sock.recv(RECV_BUFFER_SIZE).decode()
                     if msg and len(str(msg)) > 0:
+
+                        # If the user sent "QUIT", then he/she has left the room.
                         if str(msg) == "QUIT":
-                            print("--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
-                            broadcast_message(read_sock_fd, "--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
+                            # print("--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
+                            print("--- <"+sender_username+"> is now offline ---")
+                            # broadcast_message(read_sock_fd, "--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
+                            broadcast_message(read_sock, "--- <"+sender_username+"> is now offline ---")
+
+                            # Close the socket, and remove it from the list of channels we're listening to.
                             read_sock_fd.close()
-                            list_channels.remove(read_sock_fd)
+                            list_channels.remove(read_sock)
+                            # Also remove the username from the map.
+                            del username_addr_map[read_sock]
+
+                        # Else, simply broadcast the inbound message.
                         else:
-                            broadcast_message(read_sock, "<"+str(read_sock_fd.getpeername())+">: " + str(msg))
+                            broadcast_message(read_sock, "<"+sender_username+">: " + str(msg))
                     else:
-                        print("DEBUG: else branch in receiving messages. "+str(i))
-                        print("--- <"+read_sock_fd.getpeername()+"> is now offline ---")
+                        print("--- <"+sender_username+"> is now offline ---")
                 except:
-                    print("--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
-                    broadcast_message(read_sock_fd, "--- <"+str(read_sock_fd.getpeername())+"> is now offline ---")
+                    print("--- <"+sender_username+"> is now offline ---")
+                    broadcast_message(read_sock_fd, "--- <"+sender_username+"> is now offline ---")
                     read_sock_fd.close()
+                    print("DEBUG: removing socket in except "+str(read_sock_fd))
                     list_channels.remove(read_sock_fd)
                     continue
 

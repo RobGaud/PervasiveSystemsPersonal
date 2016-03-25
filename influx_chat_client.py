@@ -24,7 +24,7 @@ def prompt():
 
 
 def signal_handler(signal, frame):
-    print('InfluxChat will be terminated. Goodbye!')
+    print('\nInfluxChat will be terminated. Goodbye!')
     sock.send(MSG_END.encode('utf-8'))
     sys.exit()
 
@@ -53,12 +53,14 @@ if __name__ == "__main__":
     # Try to connect to the InfluxChat Server
     try:
         sock.connect((CHAT_SERVER_ADDR, CHAT_SERVER_PORT))
+        # TODO it would be nice if the users can use their name instead of their address
+        sock.send(username.encode('utf-8'))
     except:
         print("Unable to reach InfluxChat Server. Try again later.")
         sys.exit()
 
-    # TODO it would be nice if the users can use their name instead of their address
-    # sock.send(username)
+
+
     print("Connection succeeded. Type \'QUIT\' or press \'Ctrl+C\' to terminate.")
     # If the client succeeds in connecting to the server, then allow to the user to chat.
     prompt()
@@ -79,7 +81,7 @@ if __name__ == "__main__":
                     if msg and len(str(msg)) > 0:
                         print("\nDEBUG: message received")
                         if str(msg) == "QUIT":
-                            print("InfluxChat Server has benn shutted down. Sorry for the inconvenience.")
+                            print("InfluxChat Server has been shut down. Sorry for the inconvenience.")
                             sys.exit()
                         else:
                             print(str(msg))
@@ -92,4 +94,7 @@ if __name__ == "__main__":
                 msg = sys.stdin.readline()
                 sock.send(msg.encode('utf-8'))
                 print("DEBUG: message sent")
-                prompt()
+                if msg == "QUIT":
+                    signal_handler()
+                else:
+                    prompt()
