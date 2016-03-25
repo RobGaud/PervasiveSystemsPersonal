@@ -59,8 +59,6 @@ if __name__ == "__main__":
         print("Unable to reach InfluxChat Server. Try again later.")
         sys.exit()
 
-
-
     print("Connection succeeded. Type \'QUIT\' or press \'Ctrl+C\' to terminate.")
     # If the client succeeds in connecting to the server, then allow to the user to chat.
     prompt()
@@ -79,7 +77,6 @@ if __name__ == "__main__":
                 try:
                     msg = sock.recv(RECV_BUFFER_SIZE).decode()
                     if msg and len(str(msg)) > 0:
-                        print("\nDEBUG: message received")
                         if str(msg) == "QUIT":
                             print("InfluxChat Server has been shut down. Sorry for the inconvenience.")
                             sys.exit()
@@ -92,8 +89,8 @@ if __name__ == "__main__":
             # Else, the user wrote a new message: send it to the InfluxChat Server
             else:
                 msg = sys.stdin.readline()
+                msg = msg[0:len(msg)-1]
                 sock.send(msg.encode('utf-8'))
-                print("DEBUG: message sent")
                 if msg == "QUIT":
                     signal_handler()
                 else:
