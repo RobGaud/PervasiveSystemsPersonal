@@ -21,10 +21,6 @@ import signal
 
 # The broadcast_message() function forwards the message msg
 # received from sock to all the other connected users.
-from blaze.server.tests.test_server import username
-from sympy.functions.special.error_functions import li
-
-
 def broadcast_message(sender_sock, msg_content):
     # TODO before (?) sending a message to clients, we have to store it into InfluxDB
     for dest_sock in list_channels:
