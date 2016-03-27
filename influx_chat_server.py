@@ -63,6 +63,9 @@ def signal_handler(signal, frame):
 
 # Main function
 if __name__ == "__main__":
+    print("+---------------------+")
+    print("| InfluxChat - Server |")
+    print("+---------------------+")
 
     # Constants for interacting with InfluxDB.
     DBNAME = "PervSystPers"
@@ -70,6 +73,7 @@ if __name__ == "__main__":
     DB_PORT = 8086
     MEASUREMENT_NAME = "influxchat"
 
+    print("Connecting to InfluxDB database...")
     influxdb_client = InfluxDBClient(database=DBNAME)
 
     # List to keep track of socket descriptors
@@ -98,9 +102,6 @@ if __name__ == "__main__":
     # Add server socket to the list of readable channels
     list_channels.append(server_socket)
 
-    print("+---------------------+")
-    print("| InfluxChat - Server |")
-    print("+---------------------+")
     print("Waiting for connections on port " + str(CHAT_SERVER_PORT) + ".")
 
     i = 0

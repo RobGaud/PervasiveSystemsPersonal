@@ -77,7 +77,7 @@ if __name__ == "__main__":
                 try:
                     msg = sock.recv(RECV_BUFFER_SIZE).decode()
                     if msg and len(str(msg)) > 0:
-                        if str(msg) == "QUIT":
+                        if str(msg) == MSG_END:
                             print("InfluxChat Server has been shut down. Sorry for the inconvenience.")
                             sys.exit()
                         else:
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                 msg = sys.stdin.readline()
                 msg = msg[0:len(msg)-1]
                 sock.send(msg.encode('utf-8'))
-                if msg == "QUIT":
+                if msg == MSG_END:
                     signal_handler()
                 else:
                     prompt()
