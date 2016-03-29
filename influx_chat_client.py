@@ -81,7 +81,7 @@ if __name__ == "__main__":
                             print("InfluxChat Server has been shut down. Sorry for the inconvenience.")
                             sys.exit()
                         else:
-                            print(str(msg))
+                            print("\n"+str(msg))
                             prompt()
                 except:
                     print("Disconnected from InfluxChat Server. Sorry for the inconvenience.")

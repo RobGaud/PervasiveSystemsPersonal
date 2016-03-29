@@ -21,31 +21,32 @@ import signal
 
 # The broadcast_message() function forwards the message msg
 # received from sock to all the other connected users.
-def broadcast_message(sender_sock, sender_username, msg_content):
+def broadcast_message(sender_sock, sender_name, msg_content):
 
     # If the sender username is equal to DUMMYUSERNAME, then the message won't be stored into InfluxDB.
-    if sender_username != DUMMY_USERNAME:
+    if sender_name != DUMMY_USERNAME:
         json_body = [
             {
                 "measurement": MEASUREMENT_NAME,
                 "tags": {
-                    "username": sender_username
+                    "username": sender_name
                 },
                 "fields": {
                     "value": msg_content
                 }
             }
         ]
-        # TODO send to InfluxDB
+        # Send the message to InfluxDB
         influxdb_client.write_points(json_body)
 
+    # Forward the message to all other users.
     for dest_sock in list_channels:
         # Clearly msg is not sent neither to the server itself nor to the initial sender.
         if dest_sock != server_socket and dest_sock != sender_sock:
             # The try-except construct is used to handle broken channels (e.g., when a user pressed "Ctrl+C")
             try:
-                if sender_username != DUMMY_USERNAME:
-                    msg_to_deliver = "<"+sender_username+">: "+msg_content
+                if sender_name != DUMMY_USERNAME:
+                    msg_to_deliver = "<"+sender_name+">: "+msg_content
                 else:
                     msg_to_deliver = msg_content
                 dest_sock.send(msg_to_deliver.encode('utf-8'))
@@ -55,6 +56,7 @@ def broadcast_message(sender_sock, sender_username, msg_content):
                 list_channels.remove(dest_sock)
 
 
+# signal_handler function is called when a SIGINT signal is detected (e.g., Ctrl+C have been pressed)
 def signal_handler(signal, frame):
     print('\nInfluxChat Server will be terminated.')
     broadcast_message(server_socket, DUMMY_USERNAME, MSG_END)
@@ -72,10 +74,30 @@ if __name__ == "__main__":
     DB_ADDRESS = "127.0.0.1"
     DB_PORT = 8086
     MEASUREMENT_NAME = "influxchat"
+    CONT_QUERY = """create continuous query cq_30m on PervSystPers
+                    begin   select count(value) as num_msg
+                            into PervSystPers.\"default\".downsampled_msg
+                            from influxchat
+                            group by time(30m)
+                    end"""
 
     print("Connecting to InfluxDB database...")
     influxdb_client = InfluxDBClient(database=DBNAME)
 
+    print("Done.")
+
+    print("Setting up continuous queries and retention policies...")
+    # Set up the continuous query
+    try:
+        result_db = influxdb_client.query(CONT_QUERY)
+    except:
+        print("Note: continuous query already exists.")
+
+    # Set up retention policy
+    resultdb = influxdb_client.create_retention_policy('del_4_weeks', '4w', 1, DBNAME, default=True)
+    print("Done.")
+
+    print("Setting up socket...")
     # List to keep track of socket descriptors
     list_channels = []
 
@@ -102,9 +124,9 @@ if __name__ == "__main__":
     # Add server socket to the list of readable channels
     list_channels.append(server_socket)
 
+    print("Done.")
     print("Waiting for connections on port " + str(CHAT_SERVER_PORT) + ".")
 
-    i = 0
     while True:
         # Use select() for getting the channels that are ready to be read
         read_sockets, write_sockets, err_sockets = select.select(list_channels, [], [])
@@ -112,7 +134,7 @@ if __name__ == "__main__":
         for read_sock in read_sockets:
             # If read_sock is the server socket, then a new inbound connection occurred
             if read_sock == server_socket:
-                print("DEBUG: I'm receiving from server socket. "+str(i))
+                print("DEBUG: I'm receiving from server socket.")
                 read_sock_fd, addr = server_socket.accept()
                 list_channels.append(read_sock_fd)
 
@@ -136,10 +158,9 @@ if __name__ == "__main__":
                 broadcast_message(read_sock_fd, DUMMY_USERNAME, "--- %s joined the conversation ---" % new_username)
                 print("--- %s joined the conversation ---" % new_username)
 
-                i += 1
             # Else, the value to be read is a new message sent by some user
             else:
-                print("DEBUG: I'm receiving from users. "+str(i))
+                print("DEBUG: I'm receiving from users.")
 
                 # Get the username related to the socket.
                 sender_username = username_addr_map[read_sock]
