@@ -70,10 +70,13 @@ if __name__ == "__main__":
     print("+---------------------+")
 
     # Constants for interacting with InfluxDB.
-    DBNAME = "PervSystPers"
-    DB_ADDRESS = "127.0.0.1"
+    DB_NAME = "PervSystPers"
+    DB_ADDRESS = "localhost"
     DB_PORT = 8086
     MEASUREMENT_NAME = "influxchat"
+    RET_POL_NAME = 'del_4_weeks'
+    RET_POL_PERIOD = '4w'
+    RET_POL_N_COPY = 1
     CONT_QUERY = """create continuous query cq_30m on PervSystPers
                     begin   select count(value) as num_msg
                             into PervSystPers.\"default\".downsampled_msg
@@ -82,7 +85,7 @@ if __name__ == "__main__":
                     end"""
 
     print("Connecting to InfluxDB database...")
-    influxdb_client = InfluxDBClient(database=DBNAME)
+    influxdb_client = InfluxDBClient(host=DB_ADDRESS, port=DB_PORT, database=DB_NAME)
 
     print("Done.")
 
@@ -94,7 +97,8 @@ if __name__ == "__main__":
         print("Note: continuous query already exists.")
 
     # Set up retention policy
-    resultdb = influxdb_client.create_retention_policy('del_4_weeks', '4w', 1, DBNAME, default=True)
+    resultdb = influxdb_client.create_retention_policy(RET_POL_NAME, RET_POL_PERIOD,
+                                                       RET_POL_N_COPY, DB_NAME, default=True)
     print("Done.")
 
     print("Setting up socket...")
